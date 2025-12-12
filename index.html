@@ -1,0 +1,630 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Shape Fate - Level Editor</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            min-height: 100vh;
+            color: #fff;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        header {
+            text-align: center;
+            padding: 20px 0 30px;
+        }
+
+        header h1 {
+            font-size: 2rem;
+            font-weight: 300;
+            letter-spacing: 2px;
+        }
+
+        header p {
+            color: #888;
+            margin-top: 8px;
+        }
+
+        .workspace {
+            display: grid;
+            grid-template-columns: 280px 1fr 320px;
+            gap: 20px;
+            min-height: calc(100vh - 150px);
+        }
+
+        .panel {
+            background: rgba(255,255,255,0.05);
+            border-radius: 12px;
+            padding: 20px;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+
+        .panel h2 {
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: #888;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+
+        /* Left Panel - Tools */
+        .tools-panel {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .tool-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .tool-group label {
+            font-size: 0.85rem;
+            color: #aaa;
+        }
+
+        .btn {
+            padding: 12px 16px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn-primary {
+            background: #4a90d9;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #5a9fe9;
+        }
+
+        .btn-secondary {
+            background: rgba(255,255,255,0.1);
+            color: #fff;
+        }
+
+        .btn-secondary:hover {
+            background: rgba(255,255,255,0.2);
+        }
+
+        .btn-danger {
+            background: #d94a4a;
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background: #e95a5a;
+        }
+
+        .btn-success {
+            background: #4ad94a;
+            color: #000;
+        }
+
+        .btn-success:hover {
+            background: #5ae95a;
+        }
+
+        .tool-btn {
+            width: 100%;
+            justify-content: center;
+        }
+
+        .tool-btn.active {
+            background: #4a90d9;
+            color: white;
+        }
+
+        /* Canvas Area */
+        .canvas-panel {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .canvas-container {
+            position: relative;
+            background: #2a2a3e;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+        }
+
+        #editorCanvas {
+            display: block;
+            cursor: crosshair;
+        }
+
+        .canvas-info {
+            position: absolute;
+            bottom: 10px;
+            left: 10px;
+            background: rgba(0,0,0,0.7);
+            padding: 6px 12px;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            color: #aaa;
+        }
+
+        /* Right Panel - Pieces & Export */
+        .pieces-panel {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .piece-list {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        .piece-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px;
+            background: rgba(255,255,255,0.05);
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .piece-item:hover {
+            background: rgba(255,255,255,0.1);
+        }
+
+        .piece-item.selected {
+            background: rgba(74, 144, 217, 0.3);
+            border: 1px solid #4a90d9;
+        }
+
+        .piece-color {
+            width: 24px;
+            height: 24px;
+            border-radius: 4px;
+        }
+
+        .piece-name {
+            flex: 1;
+            font-size: 0.9rem;
+        }
+
+        .piece-delete {
+            opacity: 0.5;
+            cursor: pointer;
+        }
+
+        .piece-delete:hover {
+            opacity: 1;
+            color: #d94a4a;
+        }
+
+        /* Instructions */
+        .instructions {
+            background: rgba(74, 144, 217, 0.1);
+            border: 1px solid rgba(74, 144, 217, 0.3);
+            border-radius: 8px;
+            padding: 15px;
+            font-size: 0.85rem;
+            line-height: 1.6;
+        }
+
+        .instructions h3 {
+            font-size: 0.9rem;
+            margin-bottom: 10px;
+            color: #4a90d9;
+        }
+
+        .instructions ol {
+            padding-left: 20px;
+        }
+
+        .instructions li {
+            margin-bottom: 5px;
+            color: #aaa;
+        }
+
+        /* Export Modal */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.8);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal.active {
+            display: flex;
+        }
+
+        .modal-content {
+            background: #1a1a2e;
+            border-radius: 12px;
+            padding: 30px;
+            max-width: 800px;
+            width: 90%;
+            max-height: 80vh;
+            overflow: auto;
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .modal-close {
+            background: none;
+            border: none;
+            color: #888;
+            font-size: 1.5rem;
+            cursor: pointer;
+        }
+
+        .modal-close:hover {
+            color: #fff;
+        }
+
+        pre {
+            background: #0a0a1e;
+            padding: 20px;
+            border-radius: 8px;
+            overflow-x: auto;
+            font-size: 0.8rem;
+            line-height: 1.5;
+        }
+
+        /* Drop zone */
+        .drop-zone {
+            border: 2px dashed rgba(255,255,255,0.2);
+            border-radius: 8px;
+            padding: 30px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .drop-zone:hover {
+            border-color: #4a90d9;
+            background: rgba(74, 144, 217, 0.1);
+        }
+
+        .drop-zone.drag-over {
+            border-color: #4ad94a;
+            background: rgba(74, 217, 74, 0.1);
+        }
+
+        .drop-zone p {
+            color: #888;
+            margin-top: 10px;
+        }
+
+        input[type="file"] {
+            display: none;
+        }
+
+        /* Color picker */
+        .color-options {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .color-option {
+            width: 32px;
+            height: 32px;
+            border-radius: 6px;
+            cursor: pointer;
+            border: 2px solid transparent;
+            transition: all 0.2s;
+        }
+
+        .color-option:hover {
+            transform: scale(1.1);
+        }
+
+        .color-option.selected {
+            border-color: #fff;
+        }
+
+        /* Level metadata */
+        .metadata-form {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .form-group label {
+            font-size: 0.8rem;
+            color: #888;
+        }
+
+        .form-group input, .form-group select {
+            padding: 8px 12px;
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 6px;
+            background: rgba(255,255,255,0.05);
+            color: #fff;
+            font-size: 0.9rem;
+        }
+
+        .form-group input:focus, .form-group select:focus {
+            outline: none;
+            border-color: #4a90d9;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Shape Fate Level Editor</h1>
+            <p>Create beautiful puzzle levels with ease</p>
+        </header>
+
+        <div class="workspace">
+            <!-- Left Panel - Tools -->
+            <div class="panel tools-panel">
+                <h2>Image</h2>
+                <div class="drop-zone" id="dropZone">
+                    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#888" stroke-width="1.5">
+                        <rect x="3" y="3" width="18" height="18" rx="2"/>
+                        <circle cx="8.5" cy="8.5" r="1.5"/>
+                        <path d="M21 15l-5-5L5 21"/>
+                    </svg>
+                    <p>Drop image here<br>or click to browse</p>
+                    <input type="file" id="imageInput" accept="image/*">
+                </div>
+
+                <h2>Tools</h2>
+                <div class="tool-group">
+                    <button class="btn btn-secondary tool-btn" id="undoBtn" style="opacity: 0.5;">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M3 7v6h6"/>
+                            <path d="M21 17a9 9 0 00-9-9 9 9 0 00-6 2.3L3 13"/>
+                        </svg>
+                        Undo (Ctrl+Z)
+                    </button>
+                    <button class="btn btn-secondary tool-btn active" id="toolDraw" data-tool="draw">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M12 19l7-7 3 3-7 7-3-3z"/>
+                            <path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/>
+                        </svg>
+                        Draw Piece
+                    </button>
+                    <button class="btn btn-secondary tool-btn" id="toolSelect" data-tool="select">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M3 3l7.07 16.97 2.51-7.39 7.39-2.51L3 3z"/>
+                        </svg>
+                        Select
+                    </button>
+                </div>
+
+                <h2>Piece Color</h2>
+                <div class="color-options" id="colorOptions">
+                    <div class="color-option selected" style="background: #99CCFF" data-color="#99CCFF"></div>
+                    <div class="color-option" style="background: #FFADAD" data-color="#FFADAD"></div>
+                    <div class="color-option" style="background: #B3F2B3" data-color="#B3F2B3"></div>
+                    <div class="color-option" style="background: #FFE699" data-color="#FFE699"></div>
+                    <div class="color-option" style="background: #E6B3FF" data-color="#E6B3FF"></div>
+                    <div class="color-option" style="background: #FFB366" data-color="#FFB366"></div>
+                </div>
+
+                <h2>Level Info</h2>
+                <div class="metadata-form">
+                    <div class="form-group">
+                        <label>Level ID</label>
+                        <input type="text" id="levelId" value="level_016" placeholder="level_016">
+                    </div>
+                    <div class="form-group">
+                        <label>World</label>
+                        <select id="worldId">
+                            <option value="1">World 1 - Geometry</option>
+                            <option value="2" selected>World 2 - Nature</option>
+                            <option value="3">World 3 - Objects</option>
+                            <option value="4">World 4 - Abstract</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Difficulty</label>
+                        <select id="difficulty">
+                            <option value="tutorial">Tutorial</option>
+                            <option value="easy" selected>Easy</option>
+                            <option value="medium">Medium</option>
+                            <option value="hard">Hard</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="instructions">
+                    <h3>How to Use</h3>
+                    <ol>
+                        <li>Load an image (silhouette)</li>
+                        <li>Select "Draw Piece" tool</li>
+                        <li>Click to add points around a piece</li>
+                        <li>Double-click to complete piece</li>
+                        <li>Repeat for all pieces</li>
+                        <li>Export JSON for game</li>
+                    </ol>
+                </div>
+            </div>
+
+            <!-- Center - Canvas -->
+            <div class="panel canvas-panel">
+                <div class="canvas-container">
+                    <canvas id="editorCanvas" width="600" height="800"></canvas>
+                    <div class="canvas-info" id="canvasInfo">No image loaded</div>
+                </div>
+            </div>
+
+            <!-- Right Panel - Pieces & Export -->
+            <div class="panel pieces-panel">
+                <h2>Silhouette</h2>
+                <button class="btn btn-secondary tool-btn" id="traceSilhouette">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <rect x="3" y="3" width="18" height="18" rx="2"/>
+                    </svg>
+                    Trace Silhouette
+                </button>
+                <div class="form-group" style="margin-top: 12px;">
+                    <label>Background tolerance: <span id="backgroundToleranceValue">50</span></label>
+                    <input type="range" id="backgroundTolerance" min="0" max="100" value="50">
+                </div>
+                <label style="display: flex; align-items: center; gap: 8px; font-size: 0.85rem; color: #aaa; margin-top: 8px;">
+                    <input type="checkbox" id="useInteriorSampling" checked style="width: 16px; height: 16px;">
+                    Enhance colorful interiors
+                </label>
+                <label style="display: flex; align-items: center; gap: 8px; font-size: 0.85rem; color: #aaa; margin-top: 4px;">
+                    <input type="checkbox" id="showFullImage" style="width: 16px; height: 16px;">
+                    Show original image brightness
+                </label>
+                <button class="btn btn-secondary tool-btn" id="loadMaskImage" style="margin-top: 10px;">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M12 5v14M5 12h14"/>
+                    </svg>
+                    Load Silhouette Image
+                </button>
+                <input type="file" id="maskInput" accept="image/*" style="display: none;">
+                <div id="silhouetteInfo" style="font-size: 0.85rem; color: #888; margin-top: 8px;">
+                    No silhouette traced
+                </div>
+
+                <h2>Auto Generate</h2>
+                <div class="form-group">
+                    <label>Number of Pieces</label>
+                    <input type="number" id="numPieces" value="5" min="2" max="12" style="width: 80px;">
+                </div>
+                <button class="btn btn-success tool-btn" id="quickGenerate" style="margin-top: 8px;">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+                    </svg>
+                    Quick Generate (Trace + Split)
+                </button>
+                <button class="btn btn-secondary tool-btn" id="autoSplit" style="margin-top: 8px;">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <rect x="3" y="3" width="7" height="7"/>
+                        <rect x="14" y="3" width="7" height="7"/>
+                        <rect x="3" y="14" width="7" height="7"/>
+                        <rect x="14" y="14" width="7" height="7"/>
+                    </svg>
+                    Auto-Split Only
+                </button>
+                <button class="btn btn-secondary tool-btn" id="previewScatter" style="margin-top: 8px;">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="1"/>
+                        <circle cx="6" cy="18" r="1"/>
+                        <circle cx="18" cy="18" r="1"/>
+                        <circle cx="8" cy="6" r="1"/>
+                        <circle cx="16" cy="8" r="1"/>
+                    </svg>
+                    Preview Scattered
+                </button>
+
+                <h2>Image Mode</h2>
+                <div class="form-group">
+                    <label>
+                        <input type="checkbox" id="imageMode" style="margin-right: 8px;">
+                        Use image textures for pieces
+                    </label>
+                </div>
+                <button class="btn btn-success tool-btn" id="exportPieceImages" style="margin-top: 8px;">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <rect x="3" y="3" width="18" height="18" rx="2"/>
+                        <circle cx="8.5" cy="8.5" r="1.5"/>
+                        <path d="M21 15l-5-5L5 21"/>
+                    </svg>
+                    Export Piece Images
+                </button>
+
+                <h2>Pieces (<span id="pieceCount">0</span>)</h2>
+                <div class="piece-list" id="pieceList">
+                    <div style="color: #666; font-size: 0.85rem; padding: 20px; text-align: center;">
+                        No pieces yet. Use the Draw tool to create pieces.
+                    </div>
+                </div>
+
+                <button class="btn btn-danger tool-btn" id="clearAll">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/>
+                    </svg>
+                    Clear All
+                </button>
+
+                <h2>Export</h2>
+                <button class="btn btn-success tool-btn" id="exportJson">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/>
+                    </svg>
+                    Export JSON
+                </button>
+                <button class="btn btn-primary tool-btn" id="copyJson" style="margin-top: 8px;">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <rect x="9" y="9" width="13" height="13" rx="2"/>
+                        <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/>
+                    </svg>
+                    Copy to Clipboard
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Export Modal -->
+    <div class="modal" id="exportModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Exported Level JSON</h2>
+                <button class="modal-close" id="closeModal">&times;</button>
+            </div>
+            <pre id="jsonOutput"></pre>
+            <div style="margin-top: 20px; display: flex; gap: 10px;">
+                <button class="btn btn-primary" id="downloadJson">Download JSON</button>
+                <button class="btn btn-secondary" id="copyJsonModal">Copy to Clipboard</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="editor.js"></script>
+</body>
+</html>
