@@ -20,6 +20,9 @@ class LevelEditor {
         this.showFullImage = false;
         this.showScattered = false;
 
+        // Touch support
+        this.lastTapTime = 0;
+
         // Undo history
         this.history = [];
         this.maxHistory = 50;
@@ -37,6 +40,9 @@ class LevelEditor {
     init() {
         this.setupEventListeners();
         this.setupKeyboardShortcuts();
+        this.setupMobileTabs();
+        this.setupTouchEvents();
+        this.setupResponsiveCanvas();
         this.render();
     }
 
@@ -1591,6 +1597,11 @@ class LevelEditor {
         this.ctx.fillStyle = '#2a2a3e';
         this.ctx.fillRect(0, 0, this.canvasWidth, this.canvasHeight);
 
+        // Update mobile finish button visibility
+        if (typeof this.updateFinishButton === 'function') {
+            this.updateFinishButton();
+        }
+
         // Draw image
         if (this.image) {
             const scaledWidth = this.image.width * this.imageScale;
@@ -1808,6 +1819,240 @@ class LevelEditor {
         a.download = `${levelId}.json`;
         a.click();
         URL.revokeObjectURL(url);
+    }
+
+    // ===== MOBILE SUPPORT =====
+
+    setupMobileTabs() {
+        const tabBtns = document.querySelectorAll('.tab-btn');
+        const mobilePanel = document.getElementById('mobilePanel');
+        const toolsPanel = document.getElementById('toolsPanel');
+        const piecesPanel = document.getElementById('piecesPanel');
+
+        tabBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                // Update active tab
+                tabBtns.forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+
+                // Get panel content
+                const tab = btn.dataset.tab;
+                let content = '';
+
+                if (tab === 'tools') {
+                    content = toolsPanel.innerHTML;
+                } else if (tab === 'pieces') {
+                    content = piecesPanel.innerHTML;
+                }
+
+                // Populate mobile panel
+                mobilePanel.innerHTML = content;
+                mobilePanel.classList.add('active');
+
+                // Re-attach event listeners for cloned content
+                this.reattachMobileListeners();
+            });
+        });
+
+        // Close mobile panel when tapping outside
+        document.addEventListener('click', (e) => {
+            if (window.innerWidth <= 768 &&
+                !mobilePanel.contains(e.target) &&
+                !e.target.closest('.tab-btn') &&
+                !e.target.closest('.canvas-container')) {
+                mobilePanel.classList.remove('active');
+            }
+        });
+    }
+
+    reattachMobileListeners() {
+        const mobilePanel = document.getElementById('mobilePanel');
+
+        // Re-attach all button event listeners in mobile panel
+        // This is needed because we clone innerHTML
+
+        // Tool buttons
+        mobilePanel.querySelectorAll('.tool-btn[data-tool]').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.tool-btn[data-tool]').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                this.currentTool = btn.dataset.tool;
+            });
+        });
+
+        // Color options
+        mobilePanel.querySelectorAll('.color-option').forEach(opt => {
+            opt.addEventListener('click', () => {
+                document.querySelectorAll('.color-option').forEach(o => o.classList.remove('selected'));
+                opt.classList.add('selected');
+                this.currentColor = opt.dataset.color;
+            });
+        });
+
+        // All other buttons - match by ID
+        const buttonMappings = {
+            'undoBtn': () => this.undo(),
+            'traceSilhouette': () => this.autoTraceSilhouette(),
+            'autoSplit': () => this.autoSplitPieces(),
+            'quickGenerate': () => this.quickGenerate(),
+            'previewScatter': () => this.toggleScatterPreview(),
+            'exportPieceImages': () => this.exportPieceImages(),
+            'clearAll': () => {
+                if (confirm('Clear all pieces and silhouette?')) {
+                    this.saveState();
+                    this.silhouette = [];
+                    this.pieces = [];
+                    this.currentPiece = [];
+                    this.updatePieceList();
+                    this.render();
+                }
+            },
+            'exportJson': () => this.showExportModal(),
+            'copyJson': () => this.copyToClipboard(),
+            'loadMaskImage': () => document.getElementById('maskInput').click()
+        };
+
+        Object.entries(buttonMappings).forEach(([id, handler]) => {
+            const btn = mobilePanel.querySelector(`#${id}`);
+            if (btn) {
+                btn.addEventListener('click', handler);
+            }
+        });
+
+        // File inputs
+        const imageInput = mobilePanel.querySelector('#imageInput');
+        if (imageInput) {
+            imageInput.addEventListener('change', (e) => {
+                const file = e.target.files[0];
+                if (file) this.loadImage(file);
+            });
+        }
+
+        // Background tolerance slider
+        const toleranceSlider = mobilePanel.querySelector('#backgroundTolerance');
+        const toleranceValue = mobilePanel.querySelector('#backgroundToleranceValue');
+        if (toleranceSlider) {
+            toleranceSlider.addEventListener('input', () => {
+                this.backgroundTolerance = parseInt(toleranceSlider.value, 10);
+                if (toleranceValue) {
+                    toleranceValue.textContent = toleranceSlider.value;
+                }
+            });
+        }
+    }
+
+    setupTouchEvents() {
+        const canvas = this.canvas;
+        let touchStartX = 0;
+        let touchStartY = 0;
+
+        // Touch event handlers for canvas
+        canvas.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            const touch = e.touches[0];
+            const rect = canvas.getBoundingClientRect();
+            touchStartX = touch.clientX - rect.left;
+            touchStartY = touch.clientY - rect.top;
+
+            // Trigger click equivalent
+            const clickEvent = new MouseEvent('click', {
+                clientX: touch.clientX,
+                clientY: touch.clientY
+            });
+            this.handleCanvasClick(clickEvent);
+
+            // Update finish button visibility
+            this.updateFinishButton();
+        }, { passive: false });
+
+        canvas.addEventListener('touchmove', (e) => {
+            e.preventDefault();
+            const touch = e.touches[0];
+
+            // Trigger mousemove equivalent
+            const moveEvent = new MouseEvent('mousemove', {
+                clientX: touch.clientX,
+                clientY: touch.clientY
+            });
+            this.handleCanvasMouseMove(moveEvent);
+        }, { passive: false });
+
+        canvas.addEventListener('touchend', (e) => {
+            e.preventDefault();
+            // Check for double-tap (within 300ms)
+            const now = Date.now();
+            if (this.lastTapTime && (now - this.lastTapTime) < 300) {
+                this.handleCanvasDoubleClick(e);
+                this.lastTapTime = 0;
+            } else {
+                this.lastTapTime = now;
+            }
+        }, { passive: false });
+
+        // Floating finish button
+        const finishBtn = document.getElementById('finishPieceBtn');
+        if (finishBtn) {
+            finishBtn.addEventListener('click', () => {
+                this.finishPiece();
+                this.updateFinishButton();
+            });
+        }
+    }
+
+    updateFinishButton() {
+        const finishBtn = document.getElementById('finishPieceBtn');
+        if (!finishBtn) return;
+
+        // Show button when drawing on mobile, hide otherwise
+        const isMobile = window.innerWidth <= 768;
+        const isDrawing = this.currentPiece.length >= 3;
+
+        if (isMobile && isDrawing) {
+            finishBtn.classList.add('visible');
+            finishBtn.textContent = `✓ ${this.currentPiece.length}`;
+        } else {
+            finishBtn.classList.remove('visible');
+        }
+    }
+
+    setupResponsiveCanvas() {
+        const resizeCanvas = () => {
+            const isMobile = window.innerWidth <= 768;
+
+            if (isMobile) {
+                // Mobile: canvas takes available width
+                const containerWidth = Math.min(window.innerWidth - 40, 600);
+                const aspectRatio = 4/3; // 800/600
+
+                this.canvasWidth = containerWidth;
+                this.canvasHeight = containerWidth * aspectRatio;
+
+                this.canvas.width = this.canvasWidth;
+                this.canvas.height = this.canvasHeight;
+            } else {
+                // Desktop: fixed size
+                this.canvasWidth = 600;
+                this.canvasHeight = 800;
+                this.canvas.width = 600;
+                this.canvas.height = 800;
+            }
+
+            // Refit image and re-render
+            if (this.image) {
+                this.fitImageToCanvas();
+            }
+            this.render();
+        };
+
+        // Initial resize
+        resizeCanvas();
+
+        // Resize on window resize (debounced)
+        let resizeTimeout;
+        window.addEventListener('resize', () => {
+            clearTimeout(resizeTimeout);
+            resizeTimeout = setTimeout(resizeCanvas, 250);
+        });
     }
 }
 
