@@ -41,6 +41,12 @@
             margin-top: 8px;
         }
 
+        header .version {
+            font-size: 0.75rem;
+            color: #555;
+            margin-top: 4px;
+        }
+
         /* Desktop Layout */
         .workspace {
             display: grid;
@@ -677,6 +683,7 @@
         <header>
             <h1>Shape Fate Level Editor</h1>
             <p>Create beautiful puzzle levels with ease</p>
+            <p class="version">v1.1.0</p>
         </header>
 
         <div class="workspace">
@@ -690,7 +697,7 @@
                         <path d="M21 15l-5-5L5 21"/>
                     </svg>
                     <p>Drop image here<br>or tap to browse</p>
-                    <input type="file" id="imageInput" accept="image/*,image/heic,image/heif" capture="environment">
+                    <input type="file" id="imageInput" accept="image/*">
                 </label>
 
                 <h2>Tools</h2>
