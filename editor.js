@@ -43,6 +43,7 @@ class LevelEditor {
         this.setupMobileTabs();
         this.setupTouchEvents();
         this.setupResponsiveCanvas();
+        this.setupSmartFab();
         this.render();
     }
 
@@ -1603,6 +1604,11 @@ class LevelEditor {
             this.updateFinishButton();
         }
 
+        // Update smart FAB state
+        if (typeof this.updateSmartFab === 'function') {
+            this.updateSmartFab();
+        }
+
         // Draw image
         if (this.image) {
             const scaledWidth = this.image.width * this.imageScale;
@@ -1830,8 +1836,41 @@ class LevelEditor {
         const toolsPanel = document.getElementById('toolsPanel');
         const piecesPanel = document.getElementById('piecesPanel');
 
+        // Mobile toolbar buttons
+        const mobileUndo = document.getElementById('mobileUndo');
+        const mobileClear = document.getElementById('mobileClear');
+
+        if (mobileUndo) {
+            mobileUndo.addEventListener('click', () => this.undo());
+        }
+
+        if (mobileClear) {
+            mobileClear.addEventListener('click', () => {
+                if (confirm('Clear all pieces and silhouette?')) {
+                    this.saveState();
+                    this.silhouette = [];
+                    this.pieces = [];
+                    this.currentPiece = [];
+                    this.updatePieceList();
+                    this.render();
+                    // Close panel if open
+                    mobilePanel.classList.remove('active');
+                    tabBtns.forEach(b => b.classList.remove('active'));
+                }
+            });
+        }
+
         tabBtns.forEach(btn => {
             btn.addEventListener('click', () => {
+                const isCurrentlyActive = btn.classList.contains('active') && mobilePanel.classList.contains('active');
+
+                // If tapping same tab that's already open, close it
+                if (isCurrentlyActive) {
+                    mobilePanel.classList.remove('active');
+                    btn.classList.remove('active');
+                    return;
+                }
+
                 // Update active tab
                 tabBtns.forEach(b => b.classList.remove('active'));
                 btn.classList.add('active');
@@ -1846,24 +1885,92 @@ class LevelEditor {
                     content = piecesPanel.innerHTML;
                 }
 
+                // Add drag handle at top
+                const dragHandle = '<div class="drag-handle" id="dragHandle"></div>';
+
                 // Populate mobile panel
-                mobilePanel.innerHTML = content;
+                mobilePanel.innerHTML = dragHandle + content;
                 mobilePanel.classList.add('active');
 
                 // Re-attach event listeners for cloned content
                 this.reattachMobileListeners();
+                this.setupSwipeToClose();
             });
         });
 
-        // Close mobile panel when tapping outside
+        // Close mobile panel when tapping canvas area
         document.addEventListener('click', (e) => {
             if (window.innerWidth <= 768 &&
                 !mobilePanel.contains(e.target) &&
                 !e.target.closest('.tab-btn') &&
-                !e.target.closest('.canvas-container')) {
+                !e.target.closest('.mobile-toolbar') &&
+                !e.target.closest('.finish-piece-btn')) {
                 mobilePanel.classList.remove('active');
+                tabBtns.forEach(b => b.classList.remove('active'));
             }
         });
+    }
+
+    setupSwipeToClose() {
+        const mobilePanel = document.getElementById('mobilePanel');
+        const dragHandle = document.getElementById('dragHandle');
+        const tabBtns = document.querySelectorAll('.tab-btn');
+
+        if (!mobilePanel || !dragHandle) return;
+
+        let startY = 0;
+        let currentY = 0;
+        let isDragging = false;
+
+        const handleTouchStart = (e) => {
+            startY = e.touches[0].clientY;
+            currentY = startY;
+            isDragging = true;
+            mobilePanel.style.transition = 'none';
+        };
+
+        const handleTouchMove = (e) => {
+            if (!isDragging) return;
+            currentY = e.touches[0].clientY;
+            const deltaY = currentY - startY;
+
+            // Only allow dragging down
+            if (deltaY > 0) {
+                mobilePanel.style.transform = `translateY(${deltaY}px)`;
+            }
+        };
+
+        const handleTouchEnd = () => {
+            if (!isDragging) return;
+            isDragging = false;
+            mobilePanel.style.transition = 'transform 0.3s ease';
+
+            const deltaY = currentY - startY;
+
+            // If dragged more than 80px down, close the panel
+            if (deltaY > 80) {
+                mobilePanel.classList.remove('active');
+                tabBtns.forEach(b => b.classList.remove('active'));
+            }
+
+            // Reset transform
+            mobilePanel.style.transform = '';
+        };
+
+        // Apply to drag handle
+        dragHandle.addEventListener('touchstart', handleTouchStart, { passive: true });
+        dragHandle.addEventListener('touchmove', handleTouchMove, { passive: true });
+        dragHandle.addEventListener('touchend', handleTouchEnd, { passive: true });
+
+        // Also allow swipe from top part of panel (first 60px)
+        mobilePanel.addEventListener('touchstart', (e) => {
+            const rect = mobilePanel.getBoundingClientRect();
+            if (e.touches[0].clientY - rect.top < 60) {
+                handleTouchStart(e);
+            }
+        }, { passive: true });
+        mobilePanel.addEventListener('touchmove', handleTouchMove, { passive: true });
+        mobilePanel.addEventListener('touchend', handleTouchEnd, { passive: true });
     }
 
     reattachMobileListeners() {
@@ -2061,6 +2168,69 @@ class LevelEditor {
             clearTimeout(resizeTimeout);
             resizeTimeout = setTimeout(resizeCanvas, 250);
         });
+    }
+
+    setupSmartFab() {
+        const fab = document.getElementById('smartFab');
+        if (!fab) return;
+
+        fab.addEventListener('click', () => {
+            // Determine action based on state
+            if (!this.image) {
+                // No image → trigger upload
+                document.getElementById('imageInput').click();
+            } else if (this.pieces.length === 0) {
+                // Image but no pieces → Quick Generate
+                this.quickGenerate();
+            } else {
+                // Has pieces → Copy to clipboard (most useful on mobile)
+                this.copyToClipboard();
+            }
+        });
+
+        // Update FAB state whenever render is called
+        this.updateSmartFab();
+    }
+
+    updateSmartFab() {
+        const fab = document.getElementById('smartFab');
+        if (!fab) return;
+
+        // Remove all state classes
+        fab.classList.remove('upload', 'generate', 'export');
+
+        // Determine state and update
+        if (!this.image) {
+            // No image → show upload icon
+            fab.classList.add('upload');
+            fab.innerHTML = `
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="3" y="3" width="18" height="18" rx="2"/>
+                    <circle cx="8.5" cy="8.5" r="1.5"/>
+                    <path d="M21 15l-5-5L5 21"/>
+                </svg>
+            `;
+            fab.title = 'Upload Image';
+        } else if (this.pieces.length === 0) {
+            // Image but no pieces → show generate icon
+            fab.classList.add('generate');
+            fab.innerHTML = `
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+                </svg>
+            `;
+            fab.title = 'Quick Generate';
+        } else {
+            // Has pieces → show export/copy icon
+            fab.classList.add('export');
+            fab.innerHTML = `
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="9" y="9" width="13" height="13" rx="2"/>
+                    <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/>
+                </svg>
+            `;
+            fab.title = 'Copy JSON';
+        }
     }
 }
 

@@ -77,6 +77,11 @@
             display: none;
         }
 
+        /* Mobile Top Toolbar (hidden on desktop) */
+        .mobile-toolbar {
+            display: none;
+        }
+
         /* Left Panel - Tools */
         .tools-panel {
             display: flex;
@@ -217,6 +222,50 @@
 
         .finish-piece-btn:active {
             transform: scale(0.95);
+        }
+
+        /* Smart Floating Action Button (mobile) */
+        .smart-fab {
+            position: fixed;
+            bottom: 80px;
+            right: 20px;
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            border: none;
+            font-size: 24px;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+            cursor: pointer;
+            z-index: 998;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
+        }
+
+        .smart-fab svg {
+            width: 28px;
+            height: 28px;
+        }
+
+        .smart-fab:active {
+            transform: scale(0.9);
+        }
+
+        /* FAB States */
+        .smart-fab.upload {
+            background: linear-gradient(135deg, #4a90d9, #357abd);
+            color: white;
+        }
+
+        .smart-fab.generate {
+            background: linear-gradient(135deg, #f9d423, #ff4e50);
+            color: white;
+        }
+
+        .smart-fab.export {
+            background: linear-gradient(135deg, #4ad94a, #2ecc71);
+            color: white;
         }
 
         /* Right Panel - Pieces & Export */
@@ -499,6 +548,7 @@
         @media (max-width: 768px) {
             body {
                 padding-bottom: 60px;
+                padding-top: 56px;
             }
 
             .container {
@@ -506,15 +556,74 @@
             }
 
             header {
-                padding: 15px 0 20px;
+                display: none;
             }
 
-            header h1 {
-                font-size: 1.5rem;
+            /* Mobile Top Toolbar - Always visible */
+            .mobile-toolbar {
+                display: flex;
+                position: fixed;
+                top: 0;
+                left: 0;
+                right: 0;
+                height: 56px;
+                background: #1a1a2e;
+                border-bottom: 1px solid rgba(255,255,255,0.1);
+                align-items: center;
+                justify-content: space-between;
+                padding: 0 12px;
+                z-index: 101;
             }
 
-            header p {
-                font-size: 0.85rem;
+            .mobile-toolbar .toolbar-left,
+            .mobile-toolbar .toolbar-right {
+                display: flex;
+                gap: 8px;
+            }
+
+            .mobile-toolbar .toolbar-title {
+                font-size: 1rem;
+                font-weight: 500;
+                color: #fff;
+            }
+
+            .mobile-toolbar .toolbar-version {
+                font-size: 0.65rem;
+                color: #555;
+                margin-left: 6px;
+            }
+
+            .toolbar-btn {
+                width: 44px;
+                height: 44px;
+                border-radius: 8px;
+                border: none;
+                background: rgba(255,255,255,0.1);
+                color: #fff;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                cursor: pointer;
+                transition: all 0.2s;
+            }
+
+            .toolbar-btn:active {
+                background: rgba(255,255,255,0.2);
+                transform: scale(0.95);
+            }
+
+            .toolbar-btn.danger {
+                background: rgba(217, 74, 74, 0.2);
+                color: #ff6b6b;
+            }
+
+            .toolbar-btn.danger:active {
+                background: rgba(217, 74, 74, 0.4);
+            }
+
+            .toolbar-btn svg {
+                width: 22px;
+                height: 22px;
             }
 
             /* Mobile: Single column with tabs */
@@ -593,18 +702,42 @@
                 bottom: 60px;
                 left: 0;
                 right: 0;
-                max-height: 50vh;
+                max-height: 45vh;
                 background: #1a1a2e;
                 border-top: 1px solid rgba(255,255,255,0.1);
+                border-radius: 16px 16px 0 0;
                 transform: translateY(100%);
                 transition: transform 0.3s ease;
                 overflow-y: auto;
                 z-index: 99;
-                padding: 20px;
+                padding: 12px 20px 20px;
             }
 
             .mobile-panel.active {
                 transform: translateY(0);
+            }
+
+            /* Drag handle for swipe-to-close */
+            .drag-handle {
+                width: 40px;
+                height: 4px;
+                background: rgba(255,255,255,0.3);
+                border-radius: 2px;
+                margin: 0 auto 16px;
+                cursor: grab;
+            }
+
+            .drag-handle:active {
+                cursor: grabbing;
+                background: rgba(255,255,255,0.5);
+            }
+
+            /* Close hint text */
+            .panel-close-hint {
+                text-align: center;
+                font-size: 0.7rem;
+                color: #555;
+                margin-bottom: 12px;
             }
 
             /* Larger touch targets on mobile */
@@ -664,9 +797,26 @@
                 display: none;
             }
 
-            /* Floating finish button */
+            /* Hide advanced options on mobile */
+            .mobile-hide {
+                display: none !important;
+            }
+
+            /* Floating finish button - higher when FAB is shown */
             .finish-piece-btn {
-                bottom: 70px;
+                bottom: 150px;
+            }
+
+            /* Smart FAB visible on mobile */
+            .smart-fab {
+                display: flex;
+                bottom: 75px;
+            }
+
+            /* Hide FAB when panel is open */
+            .mobile-panel.active ~ .smart-fab {
+                transform: scale(0);
+                opacity: 0;
             }
         }
 
@@ -679,11 +829,34 @@
     </style>
 </head>
 <body>
+    <!-- Mobile Top Toolbar (visible on mobile only) -->
+    <div class="mobile-toolbar">
+        <div class="toolbar-left">
+            <button class="toolbar-btn" id="mobileUndo" title="Undo">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M3 7v6h6"/>
+                    <path d="M21 17a9 9 0 00-9-9 9 9 0 00-6 2.3L3 13"/>
+                </svg>
+            </button>
+        </div>
+        <div class="toolbar-center">
+            <span class="toolbar-title">Level Editor</span>
+            <span class="toolbar-version">v1.2.0</span>
+        </div>
+        <div class="toolbar-right">
+            <button class="toolbar-btn danger" id="mobileClear" title="Clear All">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/>
+                </svg>
+            </button>
+        </div>
+    </div>
+
     <div class="container">
         <header>
             <h1>Shape Fate Level Editor</h1>
             <p>Create beautiful puzzle levels with ease</p>
-            <p class="version">v1.1.0</p>
+            <p class="version">v1.2.0</p>
         </header>
 
         <div class="workspace">
@@ -700,8 +873,8 @@
                     <input type="file" id="imageInput" accept="image/*">
                 </label>
 
-                <h2>Tools</h2>
-                <div class="tool-group">
+                <h2 class="mobile-hide">Tools</h2>
+                <div class="tool-group mobile-hide">
                     <button class="btn btn-secondary tool-btn" id="undoBtn" style="opacity: 0.5;">
                         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <path d="M3 7v6h6"/>
@@ -724,8 +897,8 @@
                     </button>
                 </div>
 
-                <h2>Piece Color</h2>
-                <div class="color-options" id="colorOptions">
+                <h2 class="mobile-hide">Piece Color</h2>
+                <div class="color-options mobile-hide" id="colorOptions">
                     <div class="color-option selected" style="background: #99CCFF" data-color="#99CCFF"></div>
                     <div class="color-option" style="background: #FFADAD" data-color="#FFADAD"></div>
                     <div class="color-option" style="background: #B3F2B3" data-color="#B3F2B3"></div>
@@ -734,8 +907,8 @@
                     <div class="color-option" style="background: #FFB366" data-color="#FFB366"></div>
                 </div>
 
-                <h2>Level Info</h2>
-                <div class="metadata-form">
+                <h2 class="mobile-hide">Level Info</h2>
+                <div class="metadata-form mobile-hide">
                     <div class="form-group">
                         <label>Level ID</label>
                         <input type="text" id="levelId" value="level_016" placeholder="level_016">
@@ -783,33 +956,33 @@
 
             <!-- Right Panel - Pieces & Export (Desktop) / Mobile Panel Content -->
             <div class="panel pieces-panel" id="piecesPanel">
-                <h2>Silhouette</h2>
-                <button class="btn btn-secondary tool-btn" id="traceSilhouette">
+                <h2 class="mobile-hide">Silhouette</h2>
+                <button class="btn btn-secondary tool-btn mobile-hide" id="traceSilhouette">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <rect x="3" y="3" width="18" height="18" rx="2"/>
                     </svg>
                     Trace Silhouette
                 </button>
-                <div class="form-group" style="margin-top: 12px;">
+                <div class="form-group mobile-hide" style="margin-top: 12px;">
                     <label>Background tolerance: <span id="backgroundToleranceValue">50</span></label>
                     <input type="range" id="backgroundTolerance" min="0" max="100" value="50">
                 </div>
-                <label style="display: flex; align-items: center; gap: 8px; font-size: 0.85rem; color: #aaa; margin-top: 8px;">
+                <label class="mobile-hide" style="display: flex; align-items: center; gap: 8px; font-size: 0.85rem; color: #aaa; margin-top: 8px;">
                     <input type="checkbox" id="useInteriorSampling" checked style="width: 16px; height: 16px;">
                     Enhance colorful interiors
                 </label>
-                <label style="display: flex; align-items: center; gap: 8px; font-size: 0.85rem; color: #aaa; margin-top: 4px;">
+                <label class="mobile-hide" style="display: flex; align-items: center; gap: 8px; font-size: 0.85rem; color: #aaa; margin-top: 4px;">
                     <input type="checkbox" id="showFullImage" style="width: 16px; height: 16px;">
                     Show original image brightness
                 </label>
-                <button class="btn btn-secondary tool-btn" id="loadMaskImage" style="margin-top: 10px;">
+                <button class="btn btn-secondary tool-btn mobile-hide" id="loadMaskImage" style="margin-top: 10px;">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <path d="M12 5v14M5 12h14"/>
                     </svg>
                     Load Silhouette Image
                 </button>
                 <input type="file" id="maskInput" accept="image/*" style="display: none;">
-                <div id="silhouetteInfo" style="font-size: 0.85rem; color: #888; margin-top: 8px;">
+                <div id="silhouetteInfo" class="mobile-hide" style="font-size: 0.85rem; color: #888; margin-top: 8px;">
                     No silhouette traced
                 </div>
 
@@ -824,7 +997,7 @@
                     </svg>
                     Quick Generate
                 </button>
-                <button class="btn btn-secondary tool-btn" id="autoSplit" style="margin-top: 8px;">
+                <button class="btn btn-secondary tool-btn mobile-hide" id="autoSplit" style="margin-top: 8px;">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <rect x="3" y="3" width="7" height="7"/>
                         <rect x="14" y="3" width="7" height="7"/>
@@ -844,14 +1017,14 @@
                     Preview Scattered
                 </button>
 
-                <h2>Image Mode</h2>
-                <div class="form-group">
+                <h2 class="mobile-hide">Image Mode</h2>
+                <div class="form-group mobile-hide">
                     <label>
                         <input type="checkbox" id="imageMode" style="margin-right: 8px;">
                         Use image textures for pieces
                     </label>
                 </div>
-                <button class="btn btn-success tool-btn" id="exportPieceImages" style="margin-top: 8px;">
+                <button class="btn btn-success tool-btn mobile-hide" id="exportPieceImages" style="margin-top: 8px;">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <rect x="3" y="3" width="18" height="18" rx="2"/>
                         <circle cx="8.5" cy="8.5" r="1.5"/>
@@ -914,8 +1087,17 @@
         <!-- Mobile Bottom Sheet -->
         <div class="mobile-panel" id="mobilePanel"></div>
 
-        <!-- Floating Finish Button (mobile) -->
+        <!-- Floating Finish Button (mobile - for completing pieces) -->
         <button class="finish-piece-btn" id="finishPieceBtn">✓</button>
+
+        <!-- Smart Floating Action Button (mobile - context-aware) -->
+        <button class="smart-fab upload" id="smartFab">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="3" y="3" width="18" height="18" rx="2"/>
+                <circle cx="8.5" cy="8.5" r="1.5"/>
+                <path d="M21 15l-5-5L5 21"/>
+            </svg>
+        </button>
     </div>
 
     <!-- Export Modal -->
