@@ -114,7 +114,8 @@ class LevelEditor {
         const dropZone = document.getElementById('dropZone');
         const imageInput = document.getElementById('imageInput');
 
-        dropZone.addEventListener('click', () => imageInput.click());
+        // Label handles click natively via "for" attribute (iOS compatible)
+        // Only handle drag & drop events
         dropZone.addEventListener('dragover', (e) => {
             e.preventDefault();
             dropZone.classList.add('drag-over');
@@ -1919,12 +1920,19 @@ class LevelEditor {
             }
         });
 
-        // File inputs
+        // File inputs (already handled by native label association)
         const imageInput = mobilePanel.querySelector('#imageInput');
         if (imageInput) {
             imageInput.addEventListener('change', (e) => {
                 const file = e.target.files[0];
-                if (file) this.loadImage(file);
+                if (file) {
+                    this.loadImage(file);
+                    // Close mobile panel after selecting image
+                    const mobilePanel = document.getElementById('mobilePanel');
+                    if (mobilePanel) {
+                        mobilePanel.classList.remove('active');
+                    }
+                }
             });
         }
 

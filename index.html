@@ -386,15 +386,18 @@
 
         /* Drop zone */
         .drop-zone {
+            display: block;
             border: 2px dashed rgba(255,255,255,0.2);
             border-radius: 8px;
             padding: 30px;
             text-align: center;
             cursor: pointer;
             transition: all 0.2s;
+            -webkit-tap-highlight-color: transparent;
         }
 
-        .drop-zone:hover {
+        .drop-zone:hover,
+        .drop-zone:active {
             border-color: #4a90d9;
             background: rgba(74, 144, 217, 0.1);
         }
@@ -408,10 +411,23 @@
             color: #888;
             margin-top: 10px;
             font-size: 0.85rem;
+            pointer-events: none;
+        }
+
+        .drop-zone svg {
+            pointer-events: none;
         }
 
         input[type="file"] {
-            display: none;
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0,0,0,0);
+            white-space: nowrap;
+            border: 0;
         }
 
         /* Color picker */
@@ -667,15 +683,15 @@
             <!-- Left Panel - Tools (Desktop) / Mobile Panel Content -->
             <div class="panel tools-panel" id="toolsPanel">
                 <h2>Image</h2>
-                <div class="drop-zone" id="dropZone">
+                <label class="drop-zone" id="dropZone" for="imageInput">
                     <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#888" stroke-width="1.5">
                         <rect x="3" y="3" width="18" height="18" rx="2"/>
                         <circle cx="8.5" cy="8.5" r="1.5"/>
                         <path d="M21 15l-5-5L5 21"/>
                     </svg>
                     <p>Drop image here<br>or tap to browse</p>
-                    <input type="file" id="imageInput" accept="image/*">
-                </div>
+                    <input type="file" id="imageInput" accept="image/*,image/heic,image/heif" capture="environment">
+                </label>
 
                 <h2>Tools</h2>
                 <div class="tool-group">
