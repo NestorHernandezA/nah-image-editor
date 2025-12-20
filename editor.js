@@ -44,7 +44,88 @@ class LevelEditor {
         this.setupTouchEvents();
         this.setupResponsiveCanvas();
         this.setupSmartFab();
+        this.loadFromLocalStorage(); // Restore previous session
         this.render();
+    }
+
+    // ===== LOCAL STORAGE PERSISTENCE =====
+
+    // Save current state to localStorage (called after every change)
+    saveToLocalStorage() {
+        try {
+            const state = {
+                silhouette: this.silhouette,
+                pieces: this.pieces,
+                levelId: document.getElementById('levelId')?.value || 'level_016',
+                worldId: document.getElementById('worldId')?.value || '2',
+                difficulty: document.getElementById('difficulty')?.value || 'medium',
+                imageMode: document.getElementById('imageMode')?.checked || false,
+                timestamp: Date.now()
+            };
+            localStorage.setItem('levelEditor_autosave', JSON.stringify(state));
+            console.log('Auto-saved to localStorage');
+        } catch (e) {
+            console.warn('Failed to save to localStorage:', e);
+        }
+    }
+
+    // Load state from localStorage on startup
+    loadFromLocalStorage() {
+        try {
+            const saved = localStorage.getItem('levelEditor_autosave');
+            if (!saved) return;
+
+            const state = JSON.parse(saved);
+
+            // Check if save is less than 24 hours old
+            const ageHours = (Date.now() - state.timestamp) / (1000 * 60 * 60);
+            if (ageHours > 24) {
+                console.log('Auto-save expired (>24 hours old)');
+                localStorage.removeItem('levelEditor_autosave');
+                return;
+            }
+
+            // Restore state
+            if (state.silhouette) this.silhouette = state.silhouette;
+            if (state.pieces) this.pieces = state.pieces;
+
+            // Restore form values
+            if (state.levelId) {
+                const levelIdInput = document.getElementById('levelId');
+                if (levelIdInput) levelIdInput.value = state.levelId;
+            }
+            if (state.worldId) {
+                const worldIdInput = document.getElementById('worldId');
+                if (worldIdInput) worldIdInput.value = state.worldId;
+            }
+            if (state.difficulty) {
+                const difficultyInput = document.getElementById('difficulty');
+                if (difficultyInput) difficultyInput.value = state.difficulty;
+            }
+            if (state.imageMode !== undefined) {
+                const imageModeInput = document.getElementById('imageMode');
+                if (imageModeInput) imageModeInput.checked = state.imageMode;
+            }
+
+            this.updatePieceList();
+            console.log(`Restored auto-save from ${new Date(state.timestamp).toLocaleString()}`);
+            console.log(`  Silhouette: ${this.silhouette.length} points`);
+            console.log(`  Pieces: ${this.pieces.length}`);
+
+            // Show notification
+            if (this.silhouette.length > 0 || this.pieces.length > 0) {
+                document.getElementById('canvasInfo').textContent =
+                    `Restored: ${this.pieces.length} pieces, ${this.silhouette.length} silhouette pts`;
+            }
+        } catch (e) {
+            console.warn('Failed to load from localStorage:', e);
+        }
+    }
+
+    // Clear auto-save (call when intentionally clearing or loading new level)
+    clearLocalStorage() {
+        localStorage.removeItem('levelEditor_autosave');
+        console.log('Cleared auto-save');
     }
 
     // Save current state to history
@@ -258,6 +339,172 @@ class LevelEditor {
         });
         document.getElementById('downloadJson').addEventListener('click', () => this.downloadJson());
         document.getElementById('copyJsonModal').addEventListener('click', () => this.copyToClipboard());
+        document.getElementById('saveToFile').addEventListener('click', () => this.saveToFile());
+
+        // Staging folder loader
+        const stagingSelect = document.getElementById('stagingSelect');
+        const refreshStaging = document.getElementById('refreshStaging');
+
+        if (stagingSelect) {
+            stagingSelect.addEventListener('change', () => {
+                const levelId = stagingSelect.value;
+                if (levelId) {
+                    this.loadFromStaging(levelId);
+                }
+            });
+        }
+
+        if (refreshStaging) {
+            refreshStaging.addEventListener('click', () => this.refreshStagingList());
+        }
+
+        // Auto-load staging list on startup
+        this.refreshStagingList();
+    }
+
+    async refreshStagingList() {
+        const stagingSelect = document.getElementById('stagingSelect');
+        if (!stagingSelect) return;
+
+        // Try multiple possible staging paths
+        const possiblePaths = [
+            '../../staging',           // When served from nah-iosgame root
+            '../staging',              // Alternative
+            '/staging',                // Absolute from server root
+            '../nah-iosgame/staging'   // When served from tools folder
+        ];
+
+        let stagingBase = null;
+
+        // Find which path works
+        for (const path of possiblePaths) {
+            try {
+                const response = await fetch(`${path}/images/level_016.png`, { method: 'HEAD' });
+                if (response.ok) {
+                    stagingBase = path;
+                    console.log('Found staging at:', path);
+                    break;
+                }
+            } catch (e) {}
+        }
+
+        if (!stagingBase) {
+            stagingSelect.innerHTML = '<option value="">-- No staging folder found --</option>';
+            console.log('Could not find staging folder. Run server from nah-iosgame root.');
+            return;
+        }
+
+        // Store for later use
+        this.stagingBase = stagingBase;
+        const levels = [];
+
+        // Scan for level files (level_016 to level_060 - our active range)
+        for (let i = 16; i <= 60; i++) {
+            const levelId = `level_${i.toString().padStart(3, '0')}`;
+            try {
+                const response = await fetch(`${this.stagingBase}/images/${levelId}.png`, { method: 'HEAD' });
+                if (response.ok) {
+                    levels.push(levelId);
+                }
+            } catch (e) {
+                // File doesn't exist, skip
+            }
+        }
+
+        // Update dropdown
+        stagingSelect.innerHTML = '<option value="">-- Select level --</option>';
+        if (levels.length === 0) {
+            stagingSelect.innerHTML += '<option value="" disabled>No staged levels found</option>';
+        } else {
+            levels.forEach(levelId => {
+                const num = parseInt(levelId.split('_')[1], 10);
+                stagingSelect.innerHTML += `<option value="${levelId}">Level ${num}</option>`;
+            });
+        }
+    }
+
+    async loadFromStaging(levelId) {
+        if (!this.stagingBase) {
+            alert('Staging folder not found. Click "Refresh List" first.');
+            return;
+        }
+
+        try {
+            // Load image first
+            const imgResponse = await fetch(`${this.stagingBase}/images/${levelId}.png`);
+            if (!imgResponse.ok) throw new Error('Image not found');
+
+            const blob = await imgResponse.blob();
+            const img = new Image();
+
+            // Try to load JSON in parallel
+            let jsonData = null;
+            try {
+                const jsonResponse = await fetch(`${this.stagingBase}/json/${levelId}.json`);
+                if (jsonResponse.ok) {
+                    jsonData = await jsonResponse.json();
+                }
+            } catch (e) {
+                // JSON load failed, continue with just image
+                console.log('No JSON found for', levelId);
+            }
+
+            // Wait for image to load using a promise
+            await new Promise((resolve, reject) => {
+                img.onload = resolve;
+                img.onerror = reject;
+                img.src = URL.createObjectURL(blob);
+            });
+
+            // Image loaded - apply it
+            this.image = img;
+            this.fitImageToCanvas();
+
+            // Clear existing data
+            this.silhouette = [];
+            this.pieces = [];
+            this.currentPiece = [];
+
+            // Apply JSON data if we have it
+            if (jsonData) {
+                // Load silhouette
+                if (jsonData.silhouette && jsonData.silhouette.points) {
+                    this.silhouette = jsonData.silhouette.points.map(p => ({ x: p[0], y: p[1] }));
+                }
+
+                // Load pieces
+                if (jsonData.pieces && jsonData.pieces.length > 0) {
+                    this.pieces = jsonData.pieces.map((p, i) => ({
+                        id: p.id || `piece_${i}`,
+                        color: this.getColorForIndex(i),
+                        vertices: p.vertices.map(v => ({ x: v[0], y: v[1] })),
+                        startPos: p.startPos ? { x: p.startPos[0], y: p.startPos[1] } : null
+                    }));
+                }
+
+                document.getElementById('canvasInfo').textContent =
+                    `${img.width}x${img.height} - ${levelId}`;
+            } else {
+                document.getElementById('canvasInfo').textContent =
+                    `${img.width}x${img.height} - ${levelId} (no JSON)`;
+            }
+
+            // Update level ID field
+            const levelIdInput = document.getElementById('levelId');
+            if (levelIdInput) levelIdInput.value = levelId;
+
+            this.updatePieceList();
+            this.render();
+
+        } catch (error) {
+            console.error('Failed to load from staging:', error);
+            alert(`Failed to load ${levelId}: ${error.message}`);
+        }
+    }
+
+    getColorForIndex(index) {
+        const colors = ['#99CCFF', '#FFADAD', '#B3F2B3', '#FFE699', '#E6B3FF', '#FFB366'];
+        return colors[index % colors.length];
     }
 
     loadImage(file) {
@@ -1828,6 +2075,49 @@ class LevelEditor {
         URL.revokeObjectURL(url);
     }
 
+    async saveToFile() {
+        // Check if File System Access API is supported
+        if (!('showSaveFilePicker' in window)) {
+            alert('Save to File not supported in this browser. Use Chrome or Edge.');
+            this.downloadJson(); // Fallback to download
+            return;
+        }
+
+        const json = this.generateJson();
+        const levelId = document.getElementById('levelId').value || 'level_016';
+
+        try {
+            const handle = await window.showSaveFilePicker({
+                suggestedName: `${levelId}.json`,
+                types: [{
+                    description: 'JSON Files',
+                    accept: { 'application/json': ['.json'] }
+                }]
+            });
+
+            const writable = await handle.createWritable();
+            await writable.write(json);
+            await writable.close();
+
+            // Show brief success feedback
+            const btn = document.getElementById('saveToFile');
+            const originalText = btn.innerHTML;
+            btn.innerHTML = '✓ Saved!';
+            btn.style.background = '#4ad94a';
+            setTimeout(() => {
+                btn.innerHTML = originalText;
+                btn.style.background = '';
+            }, 1500);
+
+        } catch (err) {
+            // User cancelled or error
+            if (err.name !== 'AbortError') {
+                console.error('Save failed:', err);
+                alert('Save failed: ' + err.message);
+            }
+        }
+    }
+
     // ===== MOBILE SUPPORT =====
 
     setupMobileTabs() {
@@ -2017,6 +2307,7 @@ class LevelEditor {
             },
             'exportJson': () => this.showExportModal(),
             'copyJson': () => this.copyToClipboard(),
+            'saveToFile': () => this.saveToFile(),
             'loadMaskImage': () => document.getElementById('maskInput').click()
         };
 

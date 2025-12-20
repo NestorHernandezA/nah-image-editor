@@ -873,6 +873,21 @@
                     <input type="file" id="imageInput" accept="image/*">
                 </label>
 
+                <h2 class="mobile-hide">Staging</h2>
+                <div class="tool-group mobile-hide">
+                    <label>Load from staging folder</label>
+                    <select id="stagingSelect" style="padding: 8px; border-radius: 6px; background: rgba(255,255,255,0.1); color: #fff; border: 1px solid rgba(255,255,255,0.2);">
+                        <option value="">-- Select level --</option>
+                    </select>
+                    <button class="btn btn-secondary tool-btn" id="refreshStaging" style="margin-top: 8px;">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M23 4v6h-6M1 20v-6h6"/>
+                            <path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/>
+                        </svg>
+                        Refresh List
+                    </button>
+                </div>
+
                 <h2 class="mobile-hide">Tools</h2>
                 <div class="tool-group mobile-hide">
                     <button class="btn btn-secondary tool-btn" id="undoBtn" style="opacity: 0.5;">
@@ -1060,6 +1075,14 @@
                         <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/>
                     </svg>
                     Copy to Clipboard
+                </button>
+                <button class="btn btn-secondary tool-btn" id="saveToFile" style="margin-top: 8px;">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/>
+                        <polyline points="17 21 17 13 7 13 7 21"/>
+                        <polyline points="7 3 7 8 15 8"/>
+                    </svg>
+                    Save to File
                 </button>
             </div>
         </div>
